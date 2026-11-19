@@ -1,0 +1,15 @@
+{
+  "name": "@home-memory/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Memory Harness v1.2.0 的薄消费方：只调 REST，零底盘源码耦合",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test",
+    "smoke:consumer": "node scripts/smoke-consumer.mjs",
+    "smoke:consumer:mock": "node scripts/smoke-consumer.mjs --mock",
+    "phase1:check": "node scripts/phase1-check.mjs",
+    "verify": "npm run test && npm run smoke:consumer:mock"
+  }
+}

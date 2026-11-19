@@ -1,0 +1,23 @@
+# 只定义「消费方」。底盘（db + app REST 8080）由 HomeServiceAI tag v1.2.0
+# 自己的 docker-compose.yaml 按 docs/DEPLOY.md 单独启动，不在本仓库 vendor 源码。
+#
+#   cd <HomeServiceAI> && docker compose up -d        # 底盘
+#   cd <home-memory-app> && docker compose -f compose.consumer.yaml run --rm consumer
+#
+name: home-memory-app
+
+services:
+  consumer:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      MH_BASE_URL: ${MH_BASE_URL:-http://host.docker.internal:8080}
+      MH_HTTP_TOKEN: ${MH_HTTP_TOKEN:-}
+      MH_PRINCIPAL: ${MH_PRINCIPAL:-parent}
+      MH_BANK: ${MH_BANK:-home}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # 默认跑离线自检；去掉 --mock 即真调底盘
+    command: node scripts/smoke-consumer.mjs --mock
