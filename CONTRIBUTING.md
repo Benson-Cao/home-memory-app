@@ -19,12 +19,12 @@
 ## 每次提交前
 
 ```bash
-npm test                      # 10/10（或新增后的 N/N）
+npm test                      # 11/11（或新增后的 N/N）
 npm run smoke:consumer:mock   # 离线全链路
 npm run verify                # 上面两条串起来
 ```
 
-再加一次违例注入自检：往 `packages/client/client.mjs` 临时加一行指向 `fixtures/bad/HomeServiceAI/src/kernel/runtime.mjs` 的 import，`npm test` 的 ⑧ 必须 FAIL；**还原后**再跑一次 10/10。`fixtures/bad/**` 就是为此存在的夹具，不要删。
+再加一次违例注入自检：往 `packages/client/client.mjs` 临时加一行指向 `fixtures/bad/HomeServiceAI/src/kernel/runtime.mjs` 的 import，`npm test` 的 ⑧ 必须 FAIL；**还原后**再跑一次 11/110。`fixtures/bad/**` 就是为此存在的夹具，不要删。
 
 ## Windows 注意
 

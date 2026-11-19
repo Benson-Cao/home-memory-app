@@ -4,6 +4,8 @@
 > 建议落位：**新项目 repo 的 `docs/BLUEPRINT.md`**。
 > 基线来源：本地仓库实读 + 公开只读 API 终检（2026-11-19）。你附的两个 GitHub 链接资源解析失败，本文不依赖它们。
 
+> **进度（2026-11-19）**：阶段 0 ✅ · 阶段 1 ✅（真调 `deepseek-flash`）· **阶段 2 ✅**（底盘 `verify` 129/129，真维度 + SQL ANN + 跨维度隔离，见底盘 `docs/PHASE2.md`）。下一刀 = 阶段 3 真语义抽取与归纳。
+
 ---
 
 ## 0. 这一版到底交付了什么
@@ -89,7 +91,8 @@ home-memory-app (新 repo)       ← 消费方：只调 REST，禁止 import 底
 
 另有一条未列：`docs/provider-swap-acceptance.md` 存在但 USER_GUIDE §11 没列进文档索引，顺手补。
 
-> 这 5 条修完会产生新提交 → **tag `v1.2.0` 不再指向最新 main**。可接受（tag 是发布快照，本来就不随后续提交移动），但要在 CHANGELOG 记一笔「文档基线订正，契约未变」。若你希望 tag 永远等于 main，就**别修**，把订正记在新项目 repo 里。
+> **阶段 2 收口时已处理**：D1 / D2 / D4 顺手修进底盘（USER_GUIDE 发布状态、ADR 条数 6→5、CONTRACTS V0.5 边界改为历史口径），`docs/provider-swap-acceptance.md` 与 `docs/PHASE2.md` 已补进 §11 索引，DEPLOY §10 改为「已完成 + 后续通用手册」。**D3 按冻结纪律未动**（ADR 头部保留原文，登记在 `docs/BASELINE-CORRECTIONS.md`），**D5 不改**（底盘只当服务调，不补 `exports`）。
+> 阶段 2 必然产生新提交，tag `v1.2.0` 是发布快照、不随后续 A 档提交移动 —— 这是预期行为，不是漂移事故；CHANGELOG 已记「文档基线订正，契约未变」。
 
 ---
 
@@ -97,7 +100,7 @@ home-memory-app (新 repo)       ← 消费方：只调 REST，禁止 import 底
 
 | 闸门 | 命令 / 判据 |
 |---|---|
-| G0 回归 | `npm run verify` → **116/116**（或新增后的 N/N，fail=0） |
+| G0 回归 | `npm run verify` → **129/129**（阶段 2 后；或后续 N/N，fail=0） |
 | G1 契约 | `check:schemas` 版本一致 `1.2.0`；`git diff` 未落 `seams/*.ts` / `*.schema.json` |
 | G2 纯度 | `check:kernel` PASS；注入 `if (scene === 'health')` → **exit 1**，还原 → PASS |
 | G3 可替换 | 场景插件源码零 provider 名 / 品牌名 / 部署通道判断；A/B 两份 profile **原样不动**，seam 集合一致 |
@@ -255,7 +258,7 @@ home-memory-app (新 repo)       ← 消费方：只调 REST，禁止 import 底
 |---|---|---|---|
 | M0 | 消费方挂载 | 薄 client 只靠 HTTP 跑通 retain/recall | 补 `exports`，不 fork |
 | M1 | 真模型 | `smoke:llm` 真调一次，usage 可观测 | 查 `/models`，别猜型号 |
-| M2 | 真语义 | 旧向量隔离拒检 + SQL ANN 生效 | 备份先做，别直接改 DDL |
+| M2 ✅ | 真语义（离线已验） | 旧向量隔离拒检 + SQL ANN 生效 | 备份先做，别直接改 DDL；真 PG 迁移仍需你本机 |
 | M3 | 真抽取 | 证据链/冲突治理在真数据下仍成立 | 降级回分句抽取 |
 | M4 | 真采集 | 事件风暴不拖死服务 | 缩小队列/加背压 |
 | M5 | 可用 | 前端三屏 + 多成员隔离 | — |
@@ -322,12 +325,14 @@ git ls-remote --tags origin                # 独立回读
 
 ---
 
-## 10. 第一刀
+## 10. 已完成与下一刀
 
-**阶段 0 + 阶段 1 合并**，零契约变更、零风险：
+**阶段 0 + 1 + 2 全部收口**：
 
-1. 建 `home-memory-app` 骨架，写只调 `/health` + `POST /retain` + `POST /recall` 的薄 client（mock 测试）
-2. 本地跑一次 `npm run smoke:llm` 真调，回填真实模型名
-3. 清 §2 的 D1–D4 文档基线债（按你的 tag 策略决定是否动 main）
+1. 阶段 0：薄 client 只靠 HTTP 跑通闭环，M0 静态扫描证明零底盘内部耦合（`f2f54a8`）
+2. 阶段 1：`deepseek-flash` 真调、56 tokens、校验器 PASS、`verify` 116/116（`b8d6a71`）
+3. 阶段 2：真维度 provider + SQL ANN + 幂等迁移 + 13 项专项，底盘 `verify` **129/129**；ⓘ 第一次在持久化层真检验旧向量双重拒检（见底盘 `docs/PHASE2.md`）
 
-这一刀跑完，就能同时证明两件事：**底盘真的能被外部项目挂载**，以及 **② 的真模型代码不是纸上实现**。之后再动阶段 2 —— 那是唯一需要备份、需要 migration、第一次真检验静默降质防线的一刀。
+**下一刀 = 阶段 3 真语义抽取与归纳**：`extractor` 从按句号分句换成经 `llm` seam 抽事实/实体，`precompute` 从截断 240 字换成真归纳；失败降级回分句抽取、不抛穿内核。仍是 A 档，不动契约 / 版本 / 图 / ADR。
+
+真要上线阶段 2 的能力，你本机还需按顺序做：`npm run db:backup` → `npm run migrate:embedding` → `npm run smoke:embedding`（见底盘 `docs/PHASE2.md`）。沙盒无 Docker daemon 与 embedding 端点，这两步从未在此真跑过。

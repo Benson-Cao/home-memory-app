@@ -1,5 +1,7 @@
 # 阶段 1 · 真模型真调验证（需你本机执行）
 
+> **状态：✅ 已验收（2026-11-19）**。真实型号 `deepseek-flash`、云 API 通道、56 tokens、`last_error=null`、`verify 116/116`。完整证据见 **`docs/PHASE1-RESULT.md`**。本文件保留为操作手册，供换 key / 换通道后复跑。
+>
 > **为什么单独列**：② 的真 HTTP provider 代码已经写了、离线 mock 也全绿，但这是 v1.2.0 里**唯一「已实现却从未真调」的切片** —— 沙盒出口对 `api.deepseek.com` 返回 `403 policy_default_denied`（实测，带不带 key 一样），不是 401 缺认证。所以这一步只能在你本机跑。
 > 本文件不替代底盘 `docs/LLM.md`，只是把「阶段 0 + 1 合并」这一刀里属于你的部分列成可勾清单。
 

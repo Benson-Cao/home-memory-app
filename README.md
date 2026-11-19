@@ -22,7 +22,7 @@
 ## 快速起步（零依赖、零凭据）
 
 ```bash
-npm test                      # 10 项，全 mock
+npm test                      # 11 项，全 mock
 npm run smoke:consumer:mock   # 起本地假底盘，跑 health → retain(202) → recall
 npm run verify                # 上面两条串起来
 ```
@@ -56,22 +56,54 @@ Docker 方式见 `compose.consumer.yaml`：底盘由 tag v1.2.0 单独起，本�
 | 路径 | 作用 |
 |---|---|
 | `packages/client/client.mjs` | 薄 HTTP client，3 个方法、`x-request-id`、契约版本断言 |
-| `tests/consumer.test.mjs` | 10 项：请求形状 / 202 / 契约漂移 / 403 / Bearer / 零耦合 / 端点不扩面 |
+| `tests/consumer.test.mjs` | 11 项：请求形状 / 202 / 契约漂移 / 403 / Bearer / 零耦合 / 端点不扩面 / **扫描器自身** |
 | `scripts/smoke-consumer.mjs` | `--mock` 离线全链路；无 `--mock` 需 env 真调 |
 | `scripts/phase1-check.mjs` | 校验阶段 1 本机真调结果，专门拦「拿 `--mock` 交差」 |
 | `fixtures/bad/**` | **违例注入夹具**，仅用于验证 ⑧ 真的会 FAIL，不参与运行 |
 | `docs/BLUEPRINT.md` | 下一项目完整实现过程（阶段 0–8） |
-| `docs/PHASE1.md` | 阶段 1：真模型 smoke 操作清单 |
+| `docs/PHASE1.md` | 阶段 1：真模型 smoke 操作清单（**已验收**） |
+| `docs/PHASE1-RESULT.md` | 阶段 1 真调结果与独立复核证据（**不记密钥**） |
 | `docs/BASELINE-CORRECTIONS.md` | v1.2.0 遗留的 4 处文档基线债登记 |
 
 ## 阶段 0 完成判据
 
-- [x] `npm test` 10/10；违例注入 → ⑧ FAIL（9 pass / 1 fail）；还原 → 10/10
+- [x] `npm test` 11/11；违例注入 → ⑧ 精确 FAIL（10 pass / 1 fail）；还原 → 11/11
 - [x] `smoke --mock` 全链路 PASS；无 env 真调 SKIP `exit 2`
 - [x] 静态扫描零底盘内部 import
 - [x] `x-contract-version` 非 `1.2.0` 时消费方拒绝
 - [ ] 你本机对真实底盘跑一次 `npm run smoke:consumer`（需 GCM/底盘已起，沙盒侧网络 403 做不到）
 
+## 阶段 1 完成判据（✅ 已通过）
+
+- [x] 真调 `mode=api` / `deepseek-flash` / 56 tokens / `last_error=null`，`synthesis` 非桩
+- [x] `phase1:check` exit 0 PASS；交回原文密钥扫描 0 命中
+- [x] 用户本机 `verify` 116/116（单独实跑）；沙盒同版本副本独立复核 116/116
+- [x] 实读型号回填本机 `.env`，不自动取列表第一个
+- [ ] 轮换明文出现在对话里的 key（只能你做）
+
+详见 `docs/PHASE1-RESULT.md`。
+
+## 阶段 2 判据（✅ 底盘侧完成）
+
+- [x] `realEmbedder` + SQL ANN + 幂等迁移；底盘 `verify` **129/129**（新增 13 项专项）
+- [x] 跨维度迁移后旧向量被 SQL 与 provenance 双重拒检、可观测、不删除
+- [x] 迁移脚本强制备份前置 + 维度一致性
+- [ ] 你本机执行真 PG 迁移与真 embedding 端点调用（见底盘 `docs/PHASE2.md`）
+
+## 推送到 GitHub
+
+线上 `Benson-Cao/home-memory-app` 目前是 1 个导入提交（`d023276`），与本地 4 个提交历史无关 —— **直接 `git push` 会 non-fast-forward 被拒，别 force**。用一键脚本（凭据走你本机 git credential manager，脚本不读任何 token）：
+
+```bash
+npm run push:deferred -- --dry-run --yes   # 离线假远端预演，连 fast-forward push 一起验
+npm run push:deferred -- --yes             # 真实推送
+git ls-remote https://github.com/Benson-Cao/home-memory-app.git refs/heads/main
+```
+
+脚本会 `clone` 线上 → 清空工作树（保留 `.git`）→ 整体复制本地 → 以远端 HEAD 为父叠**一个替换提交** → fast-forward push → 回读 `ls-remote`。`--dry-run` 里专门放了 `OLD_RESIDUE.md` 与 `docs/STALE.md`，验证线上残留文件会被 stage 成 deleted。
+
+沙盒侧 `github.com` 返回 403、无写凭据，**这一步只能你本机跑**；公开只读 API 能核到线上 HEAD（`d023276a96e7`）。
+
 ## 下一刀
 
-阶段 1：`docs/PHASE1.md`（真模型 smoke，需你本机执行）→ 阶段 2 真 Embedding + `vector(16)→vector(N)` migration + SQL ANN。分档全程 **A 档**：`CONTRACT_VERSION` 保持 `1.2.0`、架构图 v1.2 不动、不新开 ADR。
+**阶段 3**：真语义抽取与归纳 —— `extractor` 从分句换成经 `llm` seam 抽事实/实体，`precompute` 从截断 240 字换成真归纳；失败降级回分句抽取、不抛穿内核。分档全程 **A 档**：`CONTRACT_VERSION` 保持 `1.2.0`、架构图 v1.2 不动、不新开 ADR。

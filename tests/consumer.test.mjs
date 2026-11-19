@@ -7,6 +7,15 @@ import { MemoryHarnessClient, CONTRACT_VERSION, DEFAULT_BASE_URL } from '../pack
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url))
 
+/**
+ * 零耦合扫描器（⑧ 与 ⑪ 共用）。
+ * 覆盖 4 种真实模块加载形式：side-effect import、dynamic import、带 from 的 import/export、require。
+ * 历史缺陷：初版只认带 `from` 的 import，一条 `import '../../HomeServiceAI/src/kernel/x.mjs'`
+ * 就能绕过 M0 关卡 —— ⑪ 专门守这个检查器自身。
+ */
+const IMPORT_LINE = /^\s*(?:import\s*['"]|import\s*\(\s*['"]|import\b[^;\n]*\bfrom\s*['"]|export\b[^;\n]*\bfrom\s*['"]|\b(?:const|let|var)\b[^;\n]*\brequire\s*\(\s*['"]|\b(?:const|let|var)\b[^;\n]*=\s*await\s+import\s*\(\s*['"]|await\s+import\s*\(\s*['"])/
+const FORBIDDEN_PATH = /(?:HomeServiceAI|memory-harness-contracts)\/(?:src|build)\/|\/src\/(?:kernel|runtime|providers|scenes|seams)\//
+
 /** 记录调用的 mock fetch；返回原生 Response（Node 20 全局可用）。 */
 function mockFetch(handler) {
   const calls = []
@@ -105,14 +114,12 @@ test('⑧ 零耦合（M0 go/no-go）：消费方源码禁止 import 底盘内部
   }
   walk(ROOT)
   const bad = []
-  // 只认真实 import / export-from / require 语句；注释与文档里的反例不算耦合。
-  const importLine = /^\s*(?:import\b[^;\n]*\bfrom\s*['"]|export\b[^;\n]*\bfrom\s*['"]|\b(?:const|let|var)\b[^;\n]*\brequire\s*\(\s*['"])/
-  const forbidden = /(?:HomeServiceAI|memory-harness-contracts)\/(?:src|build)\/|\/src\/(?:kernel|runtime|providers|scenes|seams)\//
+  // 只认真实模块加载语句；注释与文档里的反例不算耦合。
   for (const p of files) {
     const t = readFileSync(p, 'utf8')
     for (const line of t.split('\n')) {
-      if (!importLine.test(line)) continue
-      if (forbidden.test(line)) bad.push(`${p.replace(ROOT, '')}: ${line.trim().slice(0, 90)}`)
+      if (!IMPORT_LINE.test(line)) continue
+      if (FORBIDDEN_PATH.test(line)) bad.push(`${p.replace(ROOT, '')}: ${line.trim().slice(0, 90)}`)
     }
   }
   assert.deepEqual(bad, [], `发现底盘内部耦合：${bad.join(' | ')}`)
@@ -129,4 +136,29 @@ test('⑩ baseUrl 可覆盖，末尾斜杠被归一化', async () => {
   const c = new MemoryHarnessClient({ fetchImpl: f, baseUrl: 'http://nas.local:8080/' })
   await c.health()
   assert.equal(f.calls[0].url, 'http://nas.local:8080/health')
+})
+
+test('⑪ 零耦合扫描器自身：4 种模块加载形式都抓得住，注释不误伤', () => {
+  const coupled = [
+    `import '../../fixtures/bad/HomeServiceAI/src/kernel/runtime.mjs'`,        // side-effect
+    `const x = await import('../../HomeServiceAI/src/kernel/runtime.mjs')`,     // dynamic
+    `import { x } from '../../HomeServiceAI/src/kernel/runtime.mjs'`,           // 带 from
+    `export * from '../../HomeServiceAI/src/scenes/memory-scene.ts'`,           // export-from
+    `const k = require('../../HomeServiceAI/src/kernel/runtime.mjs')`,          // require
+  ]
+  for (const line of coupled) {
+    assert.ok(IMPORT_LINE.test(line), `未识别模块加载语句：${line}`)
+    assert.ok(FORBIDDEN_PATH.test(line), `未识别底盘内部路径：${line}`)
+  }
+  const innocent = [
+    `import test from 'node:test'`,
+    `import { readFileSync } from 'node:fs'`,
+    `// 反例：import '../../HomeServiceAI/src/kernel/runtime.mjs' 不该算耦合`,
+    `const note = 'HomeServiceAI/src 只是文档里的字符串'`,
+    `const mod = await import('node:fs')`,
+  ]
+  for (const line of innocent) {
+    const hit = IMPORT_LINE.test(line) && FORBIDDEN_PATH.test(line)
+    assert.equal(hit, false, `误伤：${line}`)
+  }
 })
